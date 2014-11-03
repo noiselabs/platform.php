@@ -1,0 +1,28 @@
+{
+    "name": "noiselabs/platform",
+    "description": "Access to underlying platform's identifying data",
+    "type": "library",
+    "keywords": ["noiselabs", "platform"],
+    "require-dev": {
+        "phpunit/phpunit": "4.0.*"
+    },
+    "license": "LGPL-3.0",
+    "authors": [
+        {
+            "name": "Vítor Brandão",
+            "email": "vitor@noiselabs.org"
+        }
+    ],
+    "support": {
+        "irc": "irc://irc.freenode.org/noiselabs",
+        "issues": "https://github.com/noiselabs/platform.php/issues"
+    },
+    "require": {
+        "php": ">=5.3.3",
+        "symfony/console": "~2.0",
+        "symfony/process": "~2.0"
+    },
+    "autoload": {
+        "psr-4": { "NoiseLabs\\Platform\\": "src" }
+    }
+}
