@@ -47,6 +47,18 @@ class Platform
     const UNIXCONFDIR = '/etc';
 
     /**
+     * @var array
+     *
+     * See:
+     * - {@link http://www.novell.com/coolsolutions/feature/11251.html}
+     * - {@link http://linuxmafia.com/faq/Admin/release-files.html}
+     * - {@link http://data.linux-ntfs.org/rpm/whichrpm}
+     * - {@link http://www.die.net/doc/linux/man/man1/lsb_release.1.html}
+     */
+    protected $supportedDists = array('SuSE', 'debian', 'fedora', 'redhat', 'centos', 'mandrake', 'mandriva', 'rocks',
+        'slackware', 'yellowdog', 'gentoo', 'UnitedLinux', 'turbolinux', 'arch', 'mageia');
+
+    /**
      * Queries the given executable (defaults to the PHP interpreter binary) for various architecture information.
      *
      * Returns a tuple (bits,linkage) which contains information about the bit architecture and the linkage format used
@@ -60,8 +72,10 @@ class Platform
      * the PHP interpreter binary defaults from _default_architecture are used.
      *
      * @param string|null $executable
-     * @param null $bits
-     * @param null $linkage
+     * @param null        $bits
+     * @param null        $linkage
+     *
+     * @return array
      */
     public function getArchitecture($executable = null, $bits = null, $linkage = null)
     {
@@ -71,14 +85,13 @@ class Platform
         }
 
         if (null === $executable) {
-            $phpFinder = new PhpExecutableFinder;
+            $phpFinder = new PhpExecutableFinder();
             if (!$executable = $phpFinder->find()) {
                 throw new \RuntimeException('The php executable could not be found, please add it to your PATH environment variable and try again');
             }
         }
 
         // TODO
-
         return array('bits' => $bits, 'linkage' => $linkage);
     }
 
@@ -172,29 +185,28 @@ class Platform
     public function getProcessor()
     {
         // TODO
-
         return '';
     }
 
     /**
      * Tries to determine the name of the Linux OS distribution name.
      *
-     * The function first looks for a distribution release file in /etc and then reverts to _dist_try_harder() in case
+     * The function first looks for a distribution release file in /etc and then reverts to _distTryHarder() in case
      * no suitable files are found.
      *
      * $supportedDists may be given to define the set of Linux distributions to look for. It defaults to a list of
      * currently supported Linux distributions identified by their release file name.
      *
-     * If full_distribution_name is true (default), the full distribution read from the OS is returned. Otherwise the
-     * short name taken from supported_dists is used.
+     * If $fullDistributionName is true (default), the full distribution read from the OS is returned. Otherwise the
+     * short name taken from $supportedDists is used.
      *
-     * Returns an associative array ("distname", "version", "id") which default to the args given as parameters.
+     * Returns an associative array ("distname", "version", "id") which defaults to the args given as parameters.
      *
      * @param string $distname
      * @param string $version
      * @param string $id
-     * @param null $supportedDists
-     * @param bool $fullDistributionName
+     * @param null   $supportedDists
+     * @param bool   $fullDistributionName
      *
      * @return array
      */
@@ -202,13 +214,28 @@ class Platform
         $fullDistributionName = true)
     {
         if (!is_dir(self::UNIXCONFDIR)) {
+            // Probably not a Unix system
             return array('distname' => $distname, 'version' => $version, 'id' => $id);
         }
 
-        $etc = scandir(self::UNIXCONFDIR);
-        foreach ($etc as $file) {
-            echo $file . PHP_EOL;
+        if (null === $supportedDists) {
+            $supportedDists = $this->supportedDists;
         }
+
+        // Lookup /etc for *-release or *-version files
+        foreach (scandir(self::UNIXCONFDIR) as $file) {
+            preg_match('/(\w+)(-|_)(release|version)$/', $file, $matches);
+            if (isset($matches[1]) && in_array($matches[1], $supportedDists)) {
+                $distname = $matches[1];
+                break;
+            }
+        }
+
+        if (!$distname) {
+            return $this->distTryDarder($distname, $version, $id);
+        }
+
+        return array('distname' => $distname, 'version' => $version, 'id' => $id);
     }
 
     /**
@@ -225,5 +252,87 @@ class Platform
         }
 
         throw new \BadMethodCallException(sprintf('Method "%s::%s()" does not exist.', __CLASS__, $method));
+    }
+
+    /**
+     * Tries some special tricks to get the distribution information in case the default method fails.
+     *
+     * Currently supports older SuSE Linux, Caldera OpenLinux and Slackware Linux distributions.
+     *
+     * @param $distname
+     * @param $version
+     * @param $id
+     *
+     * @return array
+     */
+    protected function _distTryHarder($distname, $version, $id)
+    {
+        if (file_exists('/var/adm/inst-log/info')) {
+            // SuSE Linux stores distribution information in that file
+            $distname = 'SuSE';
+            $handle   = fopen('/var/adm/inst-log/info', 'r');
+            if ($handle) {
+                while (($line = fgets($handle)) !== false) {
+                    $tv = preg_split('/\s+/', $line);
+                    if (count($tv) == 2) {
+                        $tag = $tv[0];
+                        $value = $tv[1];
+                    } else {
+                        continue;
+                    }
+
+                    if ('MIN_DIST_VERSION' == $tag) {
+                        $version = trim($value);
+                    } elseif ('DIST_IDENT' == $tag) {
+                        $values = explode('-', $value);
+                        $id     = $values[2];
+                    }
+                }
+
+                fclose($handle);
+
+                return array('distname' => $distname, 'version' => $version, 'id' => $id);
+            }
+        }
+
+        if (file_exists('/etc/.installed')) {
+            // Caldera OpenLinux has some infos in that file (thanks to Colin Kong)
+            $handle   = fopen('/etc/.installed', 'r');
+            if ($handle) {
+                while (($line = fgets($handle)) !== false) {
+                    $pkg = explode('-', $line);
+                    if (count($pkg) >= 2 && $pkg[0] == 'OpenLinux') {
+                        // XXX does Caldera support non Intel platforms? If yes, where can we find the needed id?
+                        fclose($handle);
+
+                        return array('distname' => 'OpenLinux', 'version' => $pkg[1], 'id' => $id);
+                    }
+                }
+
+                fclose($handle);
+            }
+        }
+
+        if (is_dir('/usr/lib/setup')) {
+            // Check for slackware version tag file (thanks to Greg Andruk)
+            $verfiles = scandir('/usr/lib/setup');
+            for ($n = count($verfiles) - 1; $n >= 0; $n--) {
+                if (!isset($verfiles[$n][14]) || $verfiles[$n][14] != 'slack-version-') {
+                    unset($verfiles[$n]);
+                }
+            }
+
+            if ($verfiles) {
+                sort($verfiles);
+                $distname = 'slackware';
+                $last = end($varfiles);
+                $version = isset($last[14]) ? $last[14] : $version;
+
+            }
+
+            return array('distname' => $distname, 'version' => $version, 'id' => $id);
+        }
+
+        return array('distname' => $distname, 'version' => $version, 'id' => $id);
     }
 }

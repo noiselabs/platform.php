@@ -66,6 +66,5 @@ EOF
         $output->writeln('<comment>Processor:</comment> '.$platform->getProcessor());
 
         $platform->getLinuxDistribution();
-
     }
 }
