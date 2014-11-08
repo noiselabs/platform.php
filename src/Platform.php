@@ -223,6 +223,7 @@ class Platform
         }
 
         // Lookup /etc for *-release or *-version files
+        $file = null;
         foreach (scandir(self::UNIXCONFDIR) as $file) {
             preg_match('/(\w+)(-|_)(release|version)$/', $file, $matches);
             if (isset($matches[1]) && in_array($matches[1], $supportedDists)) {
@@ -231,11 +232,88 @@ class Platform
             }
         }
 
-        if (!$distname) {
-            return $this->distTryDarder($distname, $version, $id);
+        if (!$file || !$distname) {
+            return $this->_distTryHarder($distname, $version, $id);
+        }
+
+        // Read the first line
+        $handle = fopen(self::UNIXCONFDIR . '/'. $file, 'r');
+        $line   = fgets($handle);
+        fclose($handle);
+
+        $fromReleaseFile = $this->_parseReleaseFile($line);
+
+        if (isset($fromReleaseFile['distname']) && $fromReleaseFile['distname'] && $fullDistributionName) {
+            $distname = $fromReleaseFile['distname'];
+        }
+        if (isset($fromReleaseFile['version']) && $fromReleaseFile['version']) {
+            $version = $fromReleaseFile['version'];
+        }
+        if (isset($fromReleaseFile) && $fromReleaseFile['id']) {
+            $id = $fromReleaseFile['id'];
         }
 
         return array('distname' => $distname, 'version' => $version, 'id' => $id);
+    }
+
+    /**
+     * System name aliasing.
+     *
+     * Returns (system,release,version) aliased to common marketing names used for some systems.
+     *
+     * It also does some reordering of the information in some cases where it would otherwise cause confusion.
+     *
+     * @param string $system
+     * @param string $release
+     * @param string $version
+     *
+     * @return array()
+     */
+    public function getSystemAlias($system, $release, $version)
+    {
+        if ($system == 'Rhapsody') {
+            // Apple's BSD derivative
+            // XXX How can we determine the marketing release number?
+            return array('system' => 'MacOS X Server', 'release' => $system . $release, 'version' => $version);
+
+        } elseif ($system == 'SunOS') {
+            // Sun's OS
+            if ($release < '5') {
+                // These releases use the old name SunOS
+                return array('system' => $system, 'release' => $release, 'version' => $version);
+            }
+
+            // Modify release (marketing release = SunOS release - 3)
+            $l = explode('.', $release);
+            if ($l) {
+                $major = (int)$l[0] - 3;
+                $l[0] = (string)$major;
+                $release = implode('.', $l);
+                if ($release < '6') {
+                    $system = 'Solaris';
+                } else {
+                    // XXX Whatever the new SunOS marketing name is...
+                    $system = 'Solaris';
+                }
+            }
+
+        } elseif ($system == 'IRIX64') {
+            // IRIX reports IRIX64 on platforms with 64-bit support; yet it is really a version and not a different
+            // platform, since 32-bit apps are also supported.
+            $system = 'IRIX';
+            if ($version) {
+                $version = $version . ' (64bit)';
+            } else {
+                $version = '64bit';
+            }
+        }
+
+        elseif (in_array($system, array('win32', 'win16'))) {
+            // In case one of the other tricks
+            $system = 'Windows';
+        }
+
+        return array('system' => $system, 'release' => $release, 'version' => $version);
     }
 
     /**
@@ -325,8 +403,8 @@ class Platform
             if ($verfiles) {
                 sort($verfiles);
                 $distname = 'slackware';
-                $last = end($varfiles);
-                $version = isset($last[14]) ? $last[14] : $version;
+                $last     = end($varfiles);
+                $version  = isset($last[14]) ? $last[14] : $version;
 
             }
 
@@ -334,5 +412,19 @@ class Platform
         }
 
         return array('distname' => $distname, 'version' => $version, 'id' => $id);
+    }
+
+    /**
+     * Default to empty 'version' and 'id' strings. Both defaults are used when 'line' is empty.  'id' defaults to
+     * empty when an id can not be deduced.
+     *
+     * @param string $line
+     */
+    protected function _parseReleaseFile($line)
+    {
+        $version = '';
+        $id      = '';
+
+        // TODO
     }
 }

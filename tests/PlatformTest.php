@@ -48,4 +48,14 @@ class PlatformTest extends \PHPUnit_Framework_TestCase
             $this->assertArrayHasKey($key, $uname);
         }
     }
+
+    public function testGetSystemAlias()
+    {
+        $platform = new Platform();
+
+        $alias = $platform->getSystemAlias('Rhapsody', 'Mac OS X Server 1.0', '');
+        foreach (array('system', 'release', 'version') as $key) {
+            $this->assertArrayHasKey($key, $alias);
+        }
+    }
 }
