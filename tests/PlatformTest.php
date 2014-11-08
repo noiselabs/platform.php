@@ -29,10 +29,14 @@ namespace NoiseLabs\Platform;
 
 class PlatformTest extends \PHPUnit_Framework_TestCase
 {
+    public function createPlatform()
+    {
+        return new Platform();
+    }
+
     public function testGetArchitecture()
     {
-        $platform     = new Platform();
-        $architecture = $platform->getArchitecture();
+        $architecture = $this->createPlatform()->getArchitecture();
 
         foreach (array('bits', 'linkage') as $key) {
             $this->assertArrayHasKey($key, $architecture);
@@ -41,8 +45,7 @@ class PlatformTest extends \PHPUnit_Framework_TestCase
 
     public function testGetUname()
     {
-        $platform = new Platform();
-        $uname = $platform->getUname();
+        $uname = $this->createPlatform()->getUname();
 
         foreach (array('system', 'node', 'release', 'version', 'machine', 'processor') as $key) {
             $this->assertArrayHasKey($key, $uname);
@@ -51,11 +54,46 @@ class PlatformTest extends \PHPUnit_Framework_TestCase
 
     public function testGetSystemAlias()
     {
-        $platform = new Platform();
 
-        $alias = $platform->getSystemAlias('Rhapsody', 'Mac OS X Server 1.0', '');
+        $alias = $this->createPlatform()->getSystemAlias('Rhapsody', 'Mac OS X Server 1.0', '');
         foreach (array('system', 'release', 'version') as $key) {
             $this->assertArrayHasKey($key, $alias);
         }
+    }
+
+    public function testGetPhpVersion()
+    {
+        $this->assertInternalType('string', $this->createPlatform()->getPhpVersion());
+    }
+
+    public function testGetPhpVersionArray()
+    {
+        $phpVersion = $this->createPlatform()->getPhpVersionArray();
+        foreach (array('major', 'minor', 'patchlevel') as $key) {
+            $this->assertArrayHasKey($key, $phpVersion);
+        }
+    }
+
+    public function testGetPhpBranch()
+    {
+        $this->assertInternalType('string', $this->createPlatform()->getPhpBranch());
+    }
+
+    public function testGetPhpRevision()
+    {
+        $this->assertInternalType('string', $this->createPlatform()->getPhpRevision());
+    }
+
+    public function testGetPhpBuild()
+    {
+        $phpBuild = $this->createPlatform()->getPhpBuild();
+        foreach (array('buildno', 'builddate') as $key) {
+            $this->assertArrayHasKey($key, $phpBuild);
+        }
+    }
+
+    public function testGetPhpCompiler()
+    {
+        $this->assertInternalType('string', $this->createPlatform()->getPhpCompiler());
     }
 }

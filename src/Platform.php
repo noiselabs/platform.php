@@ -286,8 +286,8 @@ class Platform
             // Modify release (marketing release = SunOS release - 3)
             $l = explode('.', $release);
             if ($l) {
-                $major = (int)$l[0] - 3;
-                $l[0] = (string)$major;
+                $major = (int) $l[0] - 3;
+                $l[0] = (string) $major;
                 $release = implode('.', $l);
                 if ($release < '6') {
                     $system = 'Solaris';
@@ -306,14 +306,87 @@ class Platform
             } else {
                 $version = '64bit';
             }
-        }
-
-        elseif (in_array($system, array('win32', 'win16'))) {
+        } elseif (in_array($system, array('win32', 'win16'))) {
             // In case one of the other tricks
             $system = 'Windows';
         }
 
         return array('system' => $system, 'release' => $release, 'version' => $version);
+    }
+
+    /**
+     * Returns he current PHP version as a string in "major.minor.release[extra]" notation.
+     *
+     * @return string
+     */
+    public function getPhpVersion()
+    {
+        return PHP_VERSION;
+    }
+
+    /**
+     * Returns the PHP version as associative array ("major", "minor", "release") of strings.
+     *
+     * For compatibility with Python's implementation a "patchlevel" field is also returned, containing the same level
+     * of "release".
+     *
+     * @return array
+     */
+    public function getPhpVersionArray()
+    {
+        return array(
+            'major'         => PHP_MAJOR_VERSION,
+            'minor'         => PHP_MINOR_VERSION,
+            'release'       => PHP_RELEASE_VERSION,
+            'patchlevel'    => PHP_RELEASE_VERSION
+        );
+    }
+
+    /**
+     * Returns a string identifying the PHP implementation branch.
+     *
+     * If not available, an empty string is returned.
+     *
+     * @return string
+     */
+    public function getPhpBranch()
+    {
+        return '';
+    }
+
+    /**
+     * Returns a string identifying the PHP implementation revision.
+     *
+     * If not available, an empty string is returned.
+     *
+     * @return string
+     */
+    public function getPhpRevision()
+    {
+        return '';
+    }
+
+    /**
+     * Returns an associative array ("buildno", "builddate") stating the PHP build number and date as strings.
+     *
+     * @return array
+     */
+    public function getPhpBuild()
+    {
+        return array(
+            'buildno'   => '',
+            'builddate' => ''
+        );
+    }
+
+    /**
+     * Returns a string identifying the compiler used for compiling PHP.
+     *
+     * @return string
+     */
+    public function getPhpCompiler()
+    {
+        return '';
     }
 
     /**
@@ -324,7 +397,7 @@ class Platform
      */
     public function __call($name, $arguments)
     {
-        $method = 'get' . ucfirst($name);
+        $method = 'get' . ucfirst(preg_replace('/_(.?)/e', "strtoupper('$1')", $name));
         if (method_exists($this, $method)) {
             return call_user_func_array(array($this, $method), $arguments);
         }

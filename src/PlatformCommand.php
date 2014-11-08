@@ -65,6 +65,6 @@ EOF
         $output->writeln('  <comment>Machine:</comment> '.$platform->getMachine());
         $output->writeln('<comment>Processor:</comment> '.$platform->getProcessor());
 
-        $platform->getLinuxDistribution();
+        $platform->getPhpBuild();
     }
 }
